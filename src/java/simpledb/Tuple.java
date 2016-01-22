@@ -75,7 +75,6 @@ public class Tuple implements Serializable {
     public void setField(int i, Field f) {
         // some code goes here
         if (i < 0 || i >= this.tupleFields.size())
-            //thorw new Exception(i + "is out of bounds");
             throw new IndexOutOfBoundsException("Field " + i + " is out of fields bound");
 
         this.tupleFields.set(i, f);
@@ -106,7 +105,21 @@ public class Tuple implements Serializable {
      */
     public String toString() {
         // some code goes here
-        throw new UnsupportedOperationException("Implement this");
+        //throw new UnsupportedOperationException("Implement this");
+        StringBuilder sb = new StringBuilder();
+        int size = tupleFields.size();
+        for (int i = 0; i < size; i++) {
+            Field f = tupleFields.get(i);
+            String dilimter = i == size-1 ? "\n" : "\t";
+            if (f == null)
+                sb.append("null");
+            else
+                sb.append(f.toString());
+
+            sb.append(dilimter);
+        }
+ 
+        return sb.toString();
     }
     
     /**

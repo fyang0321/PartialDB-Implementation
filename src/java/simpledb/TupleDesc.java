@@ -61,12 +61,11 @@ public class TupleDesc implements Serializable {
      *            array specifying the names of the fields. Note that names may
      *            be null.
      */
-    //TODO: check for at least one entry
-    public TupleDesc(Type[] typeAr, String[] fieldAr) {
+    public TupleDesc(Type[] typeAr, String[] fieldAr) throws IllegalArgumentException {
         // some code goes here
-        // if (typeAr.length != fieldAr.length || typeAr.length < 1) {
-        //     throw new Exception("It must contain at least one entry");
-        // }
+        if (typeAr.length != fieldAr.length || typeAr.length < 1) {
+            throw new IllegalArgumentException("It must contain at least one entry");
+        }
         tdItems = new ArrayList<TDItem>();
         for(int i = 0; i < typeAr.length; i++) {
             TDItem item = new TDItem(typeAr[i], fieldAr[i]);
@@ -82,12 +81,11 @@ public class TupleDesc implements Serializable {
      *            array specifying the number of and types of fields in this
      *            TupleDesc. It must contain at least one entry.
      */
-    //TODO: Add excpetion
-    public TupleDesc(Type[] typeAr) {
+    public TupleDesc(Type[] typeAr) throws IllegalArgumentException {
         // some code goes here
-        // if (typeAr.length < 1) {
-        //     throw new Exception("It must contain at least one entry");
-        // }
+        if (typeAr.length < 1) {
+            throw new IllegalArgumentException("It must contain at least one entry");
+        }
         tdItems = new ArrayList<TDItem>();
         for(Type t : typeAr) {
             TDItem item = new TDItem(t, "");

@@ -83,10 +83,9 @@ public class SeqScan implements DbIterator {
 
     public void open() throws DbException, TransactionAbortedException {
         // some code goes here
-        it.open();
+        this.it.open();
     }
 
-//todo: change
     /**
      * Returns the TupleDesc with field names from the underlying HeapFile,
      * prefixed with the tableAlias string from the constructor. This prefix
@@ -100,10 +99,12 @@ public class SeqScan implements DbIterator {
         // some code goes here
         TupleDesc tupleDesc = Database.getCatalog().getDbFile(this.tableId).getTupleDesc();
         int fieldNum = tupleDesc.numFields();
-        Type[] types = new Type[fieldNum];
         String[] names = new String[fieldNum];
+        Type[] types = new Type[fieldNum];
         for (int i = 0; i < fieldNum; i++) {
-            names[i] = tableAlias + "." + tupleDesc.getFieldName(i);
+            StringBuilder sb = new StringBuilder();
+            sb.append(tableAlias).append(".").append(tupleDesc.getFieldName(i));
+            names[i] = sb.toString();
             types[i] = tupleDesc.getFieldType(i);
         }
 
@@ -112,33 +113,24 @@ public class SeqScan implements DbIterator {
 
     public boolean hasNext() throws TransactionAbortedException, DbException {
         // some code goes here
-        return it == null ? false : it.hasNext();
+        return this.it == null ? false : it.hasNext();
     }
 
-//todo:change
     public Tuple next() throws NoSuchElementException,
             TransactionAbortedException, DbException {
         // some code goes here
-        if(it == null)
-            throw new NoSuchElementException("iterator is not open.");
-        
-        Tuple tuple = it.next();
-
-        if (tuple == null)
-            throw new NoSuchElementException("Tuple is null");
-
-        return tuple;
+        return this.it.next();
     }
 
     public void close() {
         // some code goes here
-        it = null;
+        this.it = null;
     }
 
     public void rewind() throws DbException, NoSuchElementException,
             TransactionAbortedException {
         // some code goes here
-        it.close();
-        it.open();
+        this.it.close();
+        this.it.open();
     }
 }
