@@ -16,6 +16,7 @@ public class Tuple implements Serializable {
     private TupleDesc tupleDesc = null;
     private RecordId recordId = null;
     List<Field> tupleFields = null;
+
     /**
      * Create a new tuple with the specified schema (type).
      * 
@@ -32,6 +33,25 @@ public class Tuple implements Serializable {
             tupleFields.add(dummy);
         }
         tupleDesc = td;
+    }
+
+    //A static method to merge tuples as merge method in TupleDesc class
+    public static Tuple merge(Tuple t1, Tuple t2) {
+        TupleDesc td = TupleDesc.merge(t1.getTupleDesc(), t2.getTupleDesc());
+
+        Tuple tuple = new Tuple(td);
+
+        int currentIdx = 0;
+        Iterator<Field> it1 = t1.fields(), it2 = t2.fields();
+        while (it1.hasNext()) {
+            tuple.setField(currentIdx++, it1.next());
+        }
+
+        while (it2.hasNext()) {
+            tuple.setField(currentIdx++, it2.next());
+        }
+
+        return tuple;
     }
 
     /**
