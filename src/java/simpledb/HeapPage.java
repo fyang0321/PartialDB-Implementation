@@ -269,10 +269,10 @@ public class HeapPage implements Page {
     public void insertTuple(Tuple t) throws DbException {
         // some code goes here
         // not necessary for lab1
-        //look forwardr empty tuple
         if (!this.td.equals(t.getTupleDesc()))
             throw new DbException("TupleDesc is mismatch!");
-
+        
+        //look for empty tuple
         int emptyIndex = -1;
         for (int i = 0; i < header.length*8; i++) {
             if (!isSlotUsed(i)) {
@@ -348,7 +348,9 @@ public class HeapPage implements Page {
     private void markSlotUsed(int i, boolean value) {
         // some code goes here
         // not necessary for lab1
+        //find the ith bit in byte
         int ithBit = i % 8;
+        //set the bit
         if (value)
             this.header[i/8] |= (1 << ithBit);
         else 
