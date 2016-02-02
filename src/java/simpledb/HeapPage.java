@@ -22,6 +22,8 @@ public class HeapPage implements Page {
 
     byte[] oldData;
 
+    private TransactionId transactionId = null;
+
     /**
      * Create a HeapPage from a set of bytes of data read from disk.
      * The format of a HeapPage is a set of header bytes indicating
@@ -230,7 +232,8 @@ public class HeapPage implements Page {
     }
 
     /**
-     * Delete the specified tuple from the page;  the tuple should be updated to reflect
+     * Delete the specified tuple from the page;  the tuple should be updated to 
+     *reflect
      *   that it is no longer stored on any page.
      * @throws DbException if this tuple is not on this page, or tuple slot is
      *         already empty.
@@ -239,6 +242,21 @@ public class HeapPage implements Page {
     public void deleteTuple(Tuple t) throws DbException {
         // some code goes here
         // not necessary for lab1
+        RecordId rid = t.getRecordId();
+
+        int tupleNo = rid.tupleno();
+        if (!isSlotUsed(tupleNo))
+            throw new DbException("No such tuple exists.");
+
+        int pageNo = rid.getPageId().pageNumber();
+        if (this.pid.pageNumber() != pageNo)
+            throw new DbException("Tuple is not on this page");
+
+        int tableId = rid.getPageId().getTableId();
+        if (this.pid.getTableId() != tableId)
+            throw new DbException("Tuple is not in this table");
+
+        markSlotUsed(tupleNo, false);
     }
 
     /**
@@ -251,6 +269,25 @@ public class HeapPage implements Page {
     public void insertTuple(Tuple t) throws DbException {
         // some code goes here
         // not necessary for lab1
+        //look forwardr empty tuple
+        if (!this.td.equals(t.getTupleDesc()))
+            throw new DbException("TupleDesc is mismatch!");
+
+        int emptyIndex = -1;
+        for (int i = 0; i < header.length*8; i++) {
+            if (!isSlotUsed(i)) {
+                emptyIndex = i;
+                break;
+            }
+        }
+
+        if (emptyIndex == -1)
+            throw new DbException("Insersion failed cause page is full.");
+
+        tuples[emptyIndex] = t;
+        markSlotUsed(emptyIndex, true);
+        RecordId rid = new RecordId(this.pid,emptyIndex);
+        t.setRecordId(rid);
     }
 
     /**
@@ -260,6 +297,9 @@ public class HeapPage implements Page {
     public void markDirty(boolean dirty, TransactionId tid) {
         // some code goes here
 	// not necessary for lab1
+        this.transactionId = null;
+        if (dirty)
+            this.transactionId = tid;
     }
 
     /**
@@ -268,7 +308,7 @@ public class HeapPage implements Page {
     public TransactionId isDirty() {
         // some code goes here
 	// Not necessary for lab1
-        return null;      
+        return this.transactionId;      
     }
 
     /**
@@ -308,6 +348,11 @@ public class HeapPage implements Page {
     private void markSlotUsed(int i, boolean value) {
         // some code goes here
         // not necessary for lab1
+        int ithBit = i % 8;
+        if (value)
+            this.header[i/8] |= (1 << ithBit);
+        else 
+            this.header[i/8] &= ~(1 << ithBit);  
     }
 
     /**
