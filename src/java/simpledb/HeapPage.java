@@ -248,12 +248,10 @@ public class HeapPage implements Page {
         if (!isSlotUsed(tupleNo))
             throw new DbException("No such tuple exists.");
 
-        int pageNo = rid.getPageId().pageNumber();
-        if (this.pid.pageNumber() != pageNo)
+        if (this.pid.pageNumber() != rid.getPageId().pageNumber())
             throw new DbException("Tuple is not on this page");
 
-        int tableId = rid.getPageId().getTableId();
-        if (this.pid.getTableId() != tableId)
+        if (this.pid.getTableId() != rid.getPageId().getTableId())
             throw new DbException("Tuple is not in this table");
 
         markSlotUsed(tupleNo, false);

@@ -53,10 +53,10 @@ public class Insert extends Operator {
         try {
             super.open();
             it.open();
-        } catch (DbException e) {
+        } catch (TransactionAbortedException e) {
             e.printStackTrace();
             System.exit(0);
-        } catch (TransactionAbortedException e) {
+        } catch (DbException e) {
             e.printStackTrace();
             System.exit(0);
         }
@@ -72,10 +72,10 @@ public class Insert extends Operator {
         // some code goes here
         try {
             it.rewind();
-        } catch (DbException e) {
+        } catch (TransactionAbortedException e) {
             e.printStackTrace();
             System.exit(0);
-        } catch (TransactionAbortedException e) {
+        } catch (DbException e) {
             e.printStackTrace();
             System.exit(0);
         }
@@ -98,28 +98,27 @@ public class Insert extends Operator {
         // some code goes here
         Tuple returnedTuple = null;
 
-        if (hasFetched)
-            return returnedTuple;
-        
-        try {
-            int count = 0;
-            while (it.hasNext()) {
-                Database.getBufferPool().insertTuple(transactionId, tableId, it.next());
-                count++;
-            }
+        if (!hasFetched) {        
+            try {
+                int count = 0;
+                while (it.hasNext()) {
+                    Database.getBufferPool().insertTuple(transactionId, tableId, it.next());
+                    count++;
+                }
 
-            returnedTuple = new Tuple(tupleDesc);
-            returnedTuple.setField(0, new IntField(count));
-            hasFetched = true;
-        } catch(DbException e) {
-            e.printStackTrace();
-            System.exit(0);
-        } catch(TransactionAbortedException e) {
-            e.printStackTrace();
-            System.exit(0);
-        } catch(Exception e) {
-            e.printStackTrace();
-            System.exit(0);
+                returnedTuple = new Tuple(tupleDesc);
+                returnedTuple.setField(0, new IntField(count));
+                hasFetched = true;
+            } catch(DbException e) {
+                e.printStackTrace();
+                System.exit(0);
+            } catch(TransactionAbortedException e) {
+                e.printStackTrace();
+                System.exit(0);
+            } catch(Exception e) {
+                e.printStackTrace();
+                System.exit(0);
+            }
         }
 
         return returnedTuple;
