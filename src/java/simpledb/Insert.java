@@ -8,6 +8,13 @@ public class Insert extends Operator {
 
     private static final long serialVersionUID = 1L;
 
+
+    private TransactionId transactionId = null;
+    private DbIterator it = null;
+    private int tableId;
+
+    private boolean hasFetched = false;
+    private TupleDesc tupleDesc = null;
     /**
      * Constructor.
      * 
@@ -24,23 +31,54 @@ public class Insert extends Operator {
     public Insert(TransactionId t,DbIterator child, int tableid)
             throws DbException {
         // some code goes here
+        if (!Database.getCatalog().getTupleDesc(tableid)
+                .equals(child.getTupleDesc()))
+            throw new DbException("TupleDesc of child is different from the one of table.");
+
+        this.transactionId = t;
+        this.it = child;
+        this.tableId = tableid;
+
+        Type[] type = new Type[]{ Type.INT_TYPE };
+        tupleDesc = new TupleDesc(type);
     }
 
     public TupleDesc getTupleDesc() {
         // some code goes here
-        return null;
+        return tupleDesc;
     }
 
     public void open() throws DbException, TransactionAbortedException {
         // some code goes here
+        try {
+            super.open();
+            it.open();
+        } catch (DbException e) {
+            e.printStackTrace();
+            System.exit(0);
+        } catch (TransactionAbortedException e) {
+            e.printStackTrace();
+            System.exit(0);
+        }
     }
 
     public void close() {
         // some code goes here
+        it.close();
+        super.close();
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
         // some code goes here
+        try {
+            it.rewind();
+        } catch (DbException e) {
+            e.printStackTrace();
+            System.exit(0);
+        } catch (TransactionAbortedException e) {
+            e.printStackTrace();
+            System.exit(0);
+        }
     }
 
     /**
@@ -58,17 +96,44 @@ public class Insert extends Operator {
      */
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
         // some code goes here
-        return null;
+        Tuple returnedTuple = null;
+
+        if (hasFetched)
+            return returnedTuple;
+        
+        try {
+            int count = 0;
+            while (it.hasNext()) {
+                Database.getBufferPool().insertTuple(transactionId, tableId, it.next());
+                count++;
+            }
+
+            returnedTuple = new Tuple(tupleDesc);
+            returnedTuple.setField(0, new IntField(count));
+            hasFetched = true;
+        } catch(DbException e) {
+            e.printStackTrace();
+            System.exit(0);
+        } catch(TransactionAbortedException e) {
+            e.printStackTrace();
+            System.exit(0);
+        } catch(Exception e) {
+            e.printStackTrace();
+            System.exit(0);
+        }
+
+        return returnedTuple;
     }
 
     @Override
     public DbIterator[] getChildren() {
         // some code goes here
-        return null;
+        return new DbIterator[] { this.it };
     }
 
     @Override
     public void setChildren(DbIterator[] children) {
         // some code goes here
+        this.it = children[0];
     }
 }
