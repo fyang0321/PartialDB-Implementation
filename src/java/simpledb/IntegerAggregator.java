@@ -1,11 +1,27 @@
 package simpledb;
 
+import java.util.*;
+import simpledb.Aggregator.Op;
+
 /**
  * Knows how to compute some aggregate over a set of IntFields.
  */
 public class IntegerAggregator implements Aggregator {
 
     private static final long serialVersionUID = 1L;
+    
+    int IA_gbField;
+    Type IA_gbFieldType;
+    int IA_aField;
+    Op IA_what;
+    //for the convenience of AVG, 
+    Map<Field, Integer> fieldCountTable = null;
+    Map<Field, Integer> fieldSumTable = null;
+    //the aggregaation function result
+    Map<Field, Integer> fieldAggTable = null;
+    
+    //store the tupledesc of the input tuple
+    TupleDesc originalTD = null;
 
     /**
      * Aggregate constructor
@@ -24,6 +40,14 @@ public class IntegerAggregator implements Aggregator {
 
     public IntegerAggregator(int gbfield, Type gbfieldtype, int afield, Op what) {
         // some code goes here
+    	this.IA_gbField = gbfield;
+    	this.IA_gbFieldType = gbfieldtype;
+    	this.IA_aField = afield;
+    	this.IA_what = what;
+    	fieldCountTable = new HashMap<Field, Integer>();
+    	fieldSumTable = new HashMap<Field, Integer>();
+    	fieldAggTable = new HashMap<Field, Integer>();
+    	originalTD = null;
     }
 
     /**
@@ -35,6 +59,68 @@ public class IntegerAggregator implements Aggregator {
      */
     public void mergeTupleIntoGroup(Tuple tup) {
         // some code goes here
+    	
+    	if(originalTD == null)
+    		originalTD = tup.getTupleDesc();
+    	
+    	Field tupGroupField = null;
+    	IntField tupAggreField = null;
+    	boolean newgroup;
+    	
+    	if(this.IA_gbField != Aggregator.NO_GROUPING)
+    		tupGroupField = tup.getField(this.IA_gbField);
+    	else
+    		tupGroupField = new IntField(Aggregator.NO_GROUPING);
+    	
+    	tupAggreField = (IntField) tup.getField(IA_aField);
+    	
+    	newgroup = !fieldAggTable.containsKey(tupGroupField);
+    	
+    	if(IA_what == Aggregator.Op.COUNT){
+    		if(newgroup)
+    			fieldAggTable.put(tupGroupField, 1);
+    		else
+    			fieldAggTable.put(tupGroupField, fieldAggTable.get(tupGroupField) + 1);
+    	}
+    	else if(IA_what == Aggregator.Op.SUM){
+    		if(newgroup)
+    			fieldAggTable.put(tupGroupField, tupAggreField.getValue());
+    		else
+    			fieldAggTable.put(tupGroupField, fieldAggTable.get(tupGroupField) + tupAggreField.getValue());
+    	}
+    	else if(IA_what == Aggregator.Op.MIN){
+    		if(newgroup)
+    			fieldAggTable.put(tupGroupField, tupAggreField.getValue());
+    		else{
+    			if(tupAggreField.getValue() < fieldAggTable.get(tupGroupField))
+    				fieldAggTable.put(tupGroupField, tupAggreField.getValue());		
+    		}
+    	}
+    	else if(IA_what == Aggregator.Op.MAX){
+    		if(newgroup)
+    			fieldAggTable.put(tupGroupField, tupAggreField.getValue());
+    		else{
+    			if(tupAggreField.getValue() > fieldAggTable.get(tupGroupField))
+    				fieldAggTable.put(tupGroupField, tupAggreField.getValue());		
+    		}
+    	}
+    	else if(IA_what == Aggregator.Op.AVG){
+    		if(newgroup)
+    		{
+    			fieldAggTable.put(tupGroupField, tupAggreField.getValue());
+    			fieldCountTable.put(tupGroupField, 1);
+    			fieldSumTable.put(tupGroupField, tupAggreField.getValue());
+    		}
+    		else{
+    			fieldCountTable.put(tupGroupField, fieldCountTable.get(tupGroupField) + 1);
+    			fieldSumTable.put(tupGroupField, fieldSumTable.get(tupGroupField) + tupAggreField.getValue());
+    			Integer avgnum = fieldSumTable.get(tupGroupField) / fieldCountTable.get(tupGroupField);
+    			fieldAggTable.put(tupGroupField, avgnum);
+    		}
+    	}
+    	else{
+    		//Do Nothing
+    	}
     }
 
     /**
@@ -47,8 +133,42 @@ public class IntegerAggregator implements Aggregator {
      */
     public DbIterator iterator() {
         // some code goes here
-        throw new
-        UnsupportedOperationException("please implement me for proj2");
+    	ArrayList<Tuple> groupedTuples = new ArrayList<Tuple>();
+    	
+    	TupleDesc td = null;
+    	Type[] typeAr;
+    	String[] fieldAr;
+    	//a single aggregateVal
+    	if(this.IA_gbField == Aggregator.NO_GROUPING){
+    		typeAr = new Type[]{Type.INT_TYPE};
+    		fieldAr = new String[]{originalTD.getFieldName(IA_aField)};
+    		td = new TupleDesc(typeAr, fieldAr);
+    	}
+    	//pair (groupVal, aggregateVal)
+    	else{
+    		typeAr = new Type[]{IA_gbFieldType, Type.INT_TYPE};
+    		fieldAr = new String[]{originalTD.getFieldName(IA_gbField), originalTD.getFieldName(IA_aField)};
+    		td = new TupleDesc(typeAr, fieldAr);
+    	}
+    	
+    	//load tuple
+    	for(Field gfield:fieldAggTable.keySet()){
+    		Tuple newTuple = new Tuple(td);
+    		Field afield =new IntField(fieldAggTable.get(gfield));
+    		
+    		if(this.IA_gbField == Aggregator.NO_GROUPING){
+    			newTuple.setField(0, afield);
+    		}
+    		else{
+    			newTuple.setField(0, gfield);
+    			newTuple.setField(1, afield);
+    		}
+    		
+    		groupedTuples.add(newTuple);
+    	}
+    	
+    	return new TupleIterator(td, groupedTuples);
+        
     }
 
 }

@@ -8,6 +8,9 @@ import java.util.*;
 public class Filter extends Operator {
 
     private static final long serialVersionUID = 1L;
+    
+    Predicate F_predicate;
+    DbIterator F_child;
 
     /**
      * Constructor accepts a predicate to apply and a child operator to read
@@ -20,29 +23,36 @@ public class Filter extends Operator {
      */
     public Filter(Predicate p, DbIterator child) {
         // some code goes here
+    	this.F_predicate = p;
+    	this.F_child = child;
     }
 
     public Predicate getPredicate() {
         // some code goes here
-        return null;
+        return this.F_predicate;
     }
 
     public TupleDesc getTupleDesc() {
         // some code goes here
-        return null;
+        return F_child.getTupleDesc();
     }
 
     public void open() throws DbException, NoSuchElementException,
             TransactionAbortedException {
         // some code goes here
+    	F_child.open();
+    	super.open();
     }
 
     public void close() {
         // some code goes here
+    	F_child.close();
+    	super.close();
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
         // some code goes here
+    	F_child.rewind();
     }
 
     /**
@@ -57,18 +67,28 @@ public class Filter extends Operator {
     protected Tuple fetchNext() throws NoSuchElementException,
             TransactionAbortedException, DbException {
         // some code goes here
+    	if(this.F_child == null)
+    		return null;
+    	
+    	while(this.F_child.hasNext()){
+    		Tuple ttuple = F_child.next();
+    		if(F_predicate.filter(ttuple))
+    			return ttuple;
+    	}
+    	
         return null;
     }
 
     @Override
     public DbIterator[] getChildren() {
         // some code goes here
-        return null;
+        return new DbIterator[] {F_child};
     }
 
     @Override
     public void setChildren(DbIterator[] children) {
         // some code goes here
+    	F_child = children[0];
     }
 
 }
