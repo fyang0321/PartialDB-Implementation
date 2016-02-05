@@ -22,7 +22,10 @@ public class BufferPool {
     public static final int DEFAULT_PAGES = 50;
 
     private int pageNum = 0;
-    private Map<PageId, Page> bufferedPages = null;
+    private Map<PageId, Node> bufferedPages = null;
+    private Node head = null;
+    private Node end = null;
+
     /**
      * Creates a BufferPool that caches up to numPages pages.
      *
@@ -31,7 +34,7 @@ public class BufferPool {
     public BufferPool(int numPages) {
         // some code goes here
         this.pageNum = numPages;
-        this.bufferedPages = new HashMap<PageId, Page>();
+        this.bufferedPages = new HashMap<PageId, Node>();
     }
 
     /**
@@ -55,15 +58,20 @@ public class BufferPool {
         //return null;
         Page retrievedPage = null;
         if (!bufferedPages.containsKey(pid)) {
-            if (bufferedPages.size() > pageNum) {
-                throw new DbException("Page number exceeds limit: " + pageNum);
+            if (bufferedPages.size() >= pageNum) {
+                evictPage();
             }
 
             retrievedPage = Database.getCatalog().getDbFile(pid.getTableId())
                             .readPage(pid);
-            bufferedPages.put(pid, retrievedPage);
+
+            updateLruWithNewNode(pid, retrievedPage);
+        } else {
+            retrievedPage = bufferedPages.get(pid).page;
+            Node node = bufferedPages.get(pid);
+            removeNode(node);
+            changeHead(node);
         }
-        retrievedPage = bufferedPages.get(pid);
 
         return retrievedPage;
     }
@@ -130,6 +138,23 @@ public class BufferPool {
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for proj1
+        try {
+            List<Page> pages = Database.getCatalog().getDbFile(tableId)
+                        .insertTuple(tid, t);
+            for (Page page : pages) {
+                page.markDirty(true, tid);
+                updateLruWithNewNode(page.getId(), page);
+            }
+        } catch (TransactionAbortedException e) {
+            e.printStackTrace();
+            System.exit(0);
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.exit(0);
+        } catch (DbException e) {
+            e.printStackTrace();
+            System.exit(0);
+        }
     }
 
     /**
@@ -149,6 +174,19 @@ public class BufferPool {
         throws DbException, TransactionAbortedException {
         // some code goes here
         // not necessary for proj1
+        try {
+            Page page = Database.getCatalog().getDbFile(t.getRecordId()
+                .getPageId().getTableId()).deleteTuple(tid, t);
+
+            page.markDirty(true, tid);
+            updateLruWithNewNode(page.getId(), page);
+        } catch (DbException e) {
+            e.printStackTrace();
+            System.exit(0);
+        } catch (TransactionAbortedException e) {
+            e.printStackTrace();
+            System.exit(0);
+        }
     }
 
     /**
@@ -159,7 +197,9 @@ public class BufferPool {
     public synchronized void flushAllPages() throws IOException {
         // some code goes here
         // not necessary for proj1
-
+        for (PageId key : bufferedPages.keySet()) {
+            flushPage(key);
+        }
     }
 
     /** Remove the specific page id from the buffer pool.
@@ -169,7 +209,7 @@ public class BufferPool {
     */
     public synchronized void discardPage(PageId pid) {
         // some code goes here
-	// not necessary for proj1
+    // not necessary for proj1
     }
 
     /**
@@ -179,6 +219,16 @@ public class BufferPool {
     private synchronized  void flushPage(PageId pid) throws IOException {
         // some code goes here
         // not necessary for proj1
+        try {
+            Page page = bufferedPages.get(pid).page;
+            page.markDirty(false, null);
+            DbFile dbFile = Database.getCatalog()
+                                .getDbFile(((HeapPageId)pid).getTableId());
+            dbFile.writePage(page);
+        } catch(IOException e) {
+            e.printStackTrace();
+            System.exit(0);
+        }
     }
 
     /** Write all pages of the specified transaction to disk.
@@ -195,7 +245,65 @@ public class BufferPool {
     private synchronized  void evictPage() throws DbException {
         // some code goes here
         // not necessary for proj1
+        //flush the page first, which is the end node
+        try {
+            flushPage(end.pageId);
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.exit(0);
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.exit(0);
+        }
+        //remove the page
+        bufferedPages.remove(end.pageId);
+        removeNode(end);
+    }
+
+    //A methods to change the head node of double-list.
+    private void changeHead(Node node){
+        node.next = head;
+        node.pre = head == null ? null : head.pre;
+ 
+        head = node;
+ 
+        if(end == null)
+            end = head;
+    }
+
+    //A method to remove the node of double-list.
+    private void removeNode(Node node){
+        if (node.pre == null) {
+            this.head = node.next;
+        } else {
+            node.pre.next = node.next;
+        }
+
+        if (node.next == null) {
+            end = node.pre;
+        } else {
+            node.next.pre = node.pre;
+        } 
+    }
+
+    //A method to update LRU cache when page are accessed.
+    private void updateLruWithNewNode(PageId pid, Page retrievedPage) {
+        Node node = new Node(pid, retrievedPage);
+        changeHead(node);
+        bufferedPages.put(pid, node);
     }
 
 }
 
+//Add a new class to implement LRU cache
+class Node {
+    PageId pageId;
+    Page page;
+    Node pre;
+    Node next;
+
+    public Node(PageId id, Page p) {
+        this.pageId = id;
+        this.page = p;
+    }
+}
