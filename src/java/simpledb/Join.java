@@ -144,7 +144,10 @@ public class Join extends Operator {
     @Override
     public DbIterator[] getChildren() {
         // some code goes here
-        return new DbIterator[] { this.it1, this.it2 };
+        if (this.it1 == null || this.it2 == null)
+            return null;
+        else
+            return new DbIterator[] { this.it1, this.it2 };
     }
 
     @Override

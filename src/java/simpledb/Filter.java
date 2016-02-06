@@ -69,13 +69,24 @@ public class Filter extends Operator {
         // some code goes here
         if(this.F_child == null)
             return null;
-        
-        while(this.F_child.hasNext()){
-            Tuple ttuple = F_child.next();
-            if(F_predicate.filter(ttuple))
-                return ttuple;
+
+        try {
+            while(this.F_child.hasNext()){
+                Tuple ttuple = F_child.next();
+                if(F_predicate.filter(ttuple))
+                    return ttuple;
+            }
+        } catch (TransactionAbortedException e) {
+            e.printStackTrace();
+            System.exit(0);
+        } catch (DbException e) {
+            e.printStackTrace();
+            System.exit(0);
+        } catch (NoSuchElementException e) {
+            e.printStackTrace();
+            System.exit(0);
         }
-        
+
         return null;
     }
 
