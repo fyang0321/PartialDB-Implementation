@@ -119,7 +119,7 @@ public class Join extends Operator {
                 tupleFromIt1 = tupleFromIt1 == null ? 
                                         it1.next() : tupleFromIt1;
                 
-                while (it2.hasNext()) {
+                while (tupleFromIt1 != null && it2.hasNext()) {
                     Tuple tuple2 = it2.next();
 
                     if (jp.filter(tupleFromIt1, tuple2)) {
