@@ -1,0 +1,19 @@
+﻿1.Design decisions
+We implemented LRU page eviction policy. The idea is essentially a HashmapLinkedlist in Java API. citation: http://www.programcreek.com/2013/03/leetcode-lru-cache-java/
+For the join, it’s a nested-loop join.
+
+
+2.Changes
+We do change the API. Only three more private methods added in the implementation of LRU policy.
+
+
+3.Incomplete elements
+All tests are passed, nothing misses.
+
+
+4.How long we spend on project
+I spent 20 hours on this project. The confusing part is the implementation 
+
+
+5.Partner
+Zhangjun Mei
