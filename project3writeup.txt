@@ -1,0 +1,53 @@
+﻿Step 1: simpledb.Parser.main() and simpledb.Parser.start()
+simpledb.Parser.main() is the entry point for the SimpleDB system. It calls simpledb.Parser.start(). The latter performs three main actions:
+* It populates the SimpleDB catalog from the catalog text file provided by the user as argument (Database.getCatalog().loadSchema(argv[0]);).
+* For each table defined in the system catalog, it computes statistics over the data in the table by calling: TableStats.computeStatistics(), which then does: TableStats s = new TableStats(tableid, IOCOSTPERPAGE);
+* It processes the statements submitted by the user (processNextStatement(new ByteArrayInputStream(statementBytes));)
+Step 2: simpledb.Parser.processNextStatement()
+This method takes two key actions:
+* First, it gets a physical plan for the query by invoking handleQueryStatement((ZQuery)s);
+* Then it executes the query by calling query.execute();
+Step 3: simpledb.Parser.handleQueryStatement()
+* First, it gets a LogicalPlan by invoking parseQueryLogicalPlan(TransactionId, ZQuery)
+* Second, gets PhysicalPlan by invoking lp.PhysicalPlan()
+* Third, Set physicalPlan and logicalPlay of query
+* return query
+
+
+Step 4: simpledb.Parser.parseQueryLogicalPlan()
+* First, create a new empty logicalPlan.
+* Second, walk through tables in the From clause and add them into logicalPlan.
+* Third, parse where clause and create where expression.
+* Fourth, process the where expression by invoking processExpression(TransactionId, ZExpression, LogicalPlan)
+* Fifth, look for groupby and make sure there is only one groupby at most.
+* Sixth, check select list to see if there are aggregates and check validity.
+* Seventh, throw exception if there is not aggregate functions but only groupby.
+* Eighty, if there were orderby, add orderby to logicalPlan by invoking addOrderBy().
+
+
+Step 5: simpledb.Parser.processExpression(TransationId, ZExpression, LogicalPlan)
+* First, check operator types, only AND is supported.
+* Second, check if it’s join expression.
+* Third, add a join between two fields of two different tables by invoking addJoin() on logicalPlan if it’s join expression; otherwise, add filter by involking addFilter() on logicalPlan 
+
+
+step 6: simpledb.Parser.handleTransactStatement()
+* First, check statement type.
+* Second, if type is commit. Commit transaction by invoking commit on curtrans.
+* Third, if type is rollback. Abort transaction by invoking abort on curtrans.
+* Fourth, if type is “set transaction”. Only if curtrans is null, start a new transaction; otherwise, throw exception.
+
+
+step 7: simpledb.Parser.handleInsertStatement()
+* First, check if table exists in database.
+* Second, check the validity of insert contents.
+* Third, add inserted tuples.
+* Fourth, create insert query and add physical plan. 
+* Fifth, return insert query.
+
+
+step 8: simpledb.Parser.handleDeleteStatement()
+* First, check if table exists in database.
+* Second, create logicalPlan and query for deletion.
+* Third, set attributes in of logical plan.
+* return delete query.
