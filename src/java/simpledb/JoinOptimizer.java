@@ -111,7 +111,7 @@ public class JoinOptimizer {
             // HINT: You may need to use the variable "j" if you implemented
             // a join algorithm that's more complicated than a basic nested-loops
             // join.
-            return -1.0;
+            return cost1 + card1 * cost2 + card1 * card2;
         }
     }
 
@@ -156,6 +156,22 @@ public class JoinOptimizer {
             Map<String, Integer> tableAliasToId) {
         int card = 1;
         // some code goes here
+        
+        if (joinOp==Predicate.Op.EQUALS){
+            if ((t1pkey && t2pkey) || (!t1pkey && !t2pkey)) {
+            //when both are pk or neither are pk
+                card = card1 > card2 ? card1 : card2;
+            } else if (t1pkey) {
+            //t1 is pk
+                card = card2;
+            } else {
+            //t2 is pk
+                card = card1;
+            }
+        } else {
+            card = (int)(0.3* card1 * card2);
+        }
+
         return card <= 0 ? 1 : card;
     }
 
@@ -219,10 +235,42 @@ public class JoinOptimizer {
 
         // See the project writeup for some hints as to how this function
         // should work.
-
         // some code goes here
-        //Replace the following
-        return joins;
+        //Replace the following    
+        Vector<LogicalJoinNode> bestOrder = null;
+
+        try {       
+            Set<Set<LogicalJoinNode>> joinNodes = enumerateSubsets(joins, 1);
+            PlanCache optjoin = new PlanCache();
+
+            int size = joinNodes.size();
+            for (int i = 0; i < size; i++){
+                for (Set<LogicalJoinNode> set : enumerateSubsets(joins, i + 1)) {
+                    Vector<LogicalJoinNode> bestPlan = null;
+                    Double bestCost = Double.MAX_VALUE;
+                    Integer bestCard = Integer.MAX_VALUE;
+
+                    for (LogicalJoinNode s : set){
+                        CostCard costcard = computeCostAndCardOfSubplan(stats, 
+                            filterSelectivities, s, set, Double.MAX_VALUE, optjoin);
+
+                        if (costcard != null && costcard.cost < bestCost){
+                            bestPlan = costcard.plan;
+                            bestCard = costcard.card;
+                            bestCost = costcard.cost;
+                        }
+                    }
+                    optjoin.addPlan(set, bestCost, bestCard, bestPlan);
+                }
+            }
+
+            bestOrder = optjoin.getOrder(new HashSet<LogicalJoinNode>(joins));
+        } catch (ParsingException e) {
+            e.printStackTrace();
+            System.exit(0);
+        }
+
+        return bestOrder;
     }
 
     // ===================== Private Methods =================================

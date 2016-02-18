@@ -44,14 +44,21 @@ public class Catalog {
         //remove the table with duplicate name
         if (tableNames.containsValue(name)) {
             Iterator<Integer> iter = tableNames.keySet().iterator();
+            int idToRemove = -1;
             while (iter.hasNext()) {
                 int curId = iter.next();
                 if (name.equals(tableNames.get(curId))) {
-                    dbFiles.remove(curId);
-                    tableNames.remove(curId);
-                    tablePKs.remove(curId);
+                    // dbFiles.remove(curId);
+                    // tableNames.remove(curId);
+                    // tablePKs.remove(curId);
+                    idToRemove = curId;
+                    break;
                 }
             }
+
+            dbFiles.remove(idToRemove);
+            tableNames.remove(idToRemove);
+            tablePKs.remove(idToRemove);
         }
         dbFiles.put(id, file);
         tableNames.put(id, name);
