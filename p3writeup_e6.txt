@@ -1,0 +1,55 @@
+ Exercise 6
+ Use the 1% version of the IMDB database.
+ 
+ 
+ For the example query:
+
+select d.fname, d.lname
+from Actor a, Casts c, Movie_Director m, Director d
+where a.id=c.pid and c.mid=m.mid and m.did=d.id 
+and a.fname='John' and a.lname='Spicer';
+
+The query plan looks like:
+                            π(d.fname,d.lname),card:323818
+                            |
+                            ⨝(a.id=c.pid),card:323818
+  __________________________|___________________________
+  |                                                    |
+  σ(a.lname=Spicer),card:1                             ⨝(m.mid=c.mid),card:323818
+  |                                    ________________|_________________
+  σ(a.fname=John),card:1               |                                |
+  |                                    ⨝(d.id=m.did),card:29762         |
+  |                           _________|_________                       |
+  |                           |                 |                     scan(Casts c)
+scan(Actor a)               scan(Director d)  scan(Movie_Director m)
+
+There are 3 join operations and 2 selection operations.
+The 2 selection operations are both on the Actor table and will definitely lower the cardinality, so our optimizer do it just after the scanning of talbe Actor.
+And each time we chose the join with lower cardinality, and it can be shown in the qeury plan.
+
+We tried another query:
+
+select m.year 
+from Actor a, Movie m, Casts c, Genre g 
+where a.id=c.pid and m.id=c.mid and g.mid=m.id 
+and a.fname='John' and a.lname='Spicer' and g.genre='Comedy';
+
+This will give the year of a comedy movie with actor named 'John'.
+The query plan looks like:
+                        π(m.year),card:1
+                        |
+                        ⨝(g.mid=m.id),card:1
+  ______________________|_______________________
+  |                                            |
+  σ(g.genre=Comedy),card:1                     ⨝(a.id=c.pid),card:323818
+  |                           _________________|__________________
+  |                           |                                  |
+  |                           σ(a.lname=Spicer),card:1           ⨝(m.id=c.mid),card:323818
+  |                           |                           _______|________
+  |                           σ(a.fname=John),card:1      |              |
+scan(Genre g)                 |                         scan(Movie m)  scan(Casts c)
+                            scan(Actor a)
+
+There are 3join operations and 3 selection operations.
+As we can see, selection will always lower the cardinality and costs, so we prefer to do them first.
+Because table Actor cannot directly join with table Movie, we can see we did not join them first, although this will lead to a lower cardinality.
