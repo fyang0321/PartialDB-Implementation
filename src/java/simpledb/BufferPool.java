@@ -2,6 +2,7 @@ package simpledb;
 
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.*;
 
 /**
  * BufferPool manages the reading and writing of pages into memory from
@@ -20,11 +21,17 @@ public class BufferPool {
     other classes. BufferPool should use the numPages argument to the
     constructor instead. */
     public static final int DEFAULT_PAGES = 50;
+    private static final int ABORT_UPPER_TIME = 300;
+    private static final int SLEEP_TIME = 200;
 
     private int pageNum = 0;
     private Map<PageId, Node> bufferedPages = null;
     private Node head = null;
     private Node end = null;
+
+    //proj4
+    private LockManager lockManager;
+    private Map<TransactionId, Long> currentTransactions;
 
     /**
      * Creates a BufferPool that caches up to numPages pages.
@@ -35,6 +42,8 @@ public class BufferPool {
         // some code goes here
         this.pageNum = numPages;
         this.bufferedPages = new HashMap<PageId, Node>();
+        currentTransactions = new ConcurrentHashMap<TransactionId, Long>();
+        lockManager = new LockManager();
     }
 
     /**
@@ -56,6 +65,31 @@ public class BufferPool {
         throws TransactionAbortedException, DbException {
         // some code goes here
         //return null;
+
+        //for new transactions, record time.
+        if (!currentTransactions.containsKey(tid)) {
+            long time = System.currentTimeMillis();
+            currentTransactions.put(tid, time);
+        }
+
+        boolean isDenied = lockManager.grantLock(pid, tid, perm);
+        //put on sleep if denied
+        while(isDenied){
+            if ((System.currentTimeMillis() - currentTransactions.get(tid))
+                 > ABORT_UPPER_TIME) {
+                throw new TransactionAbortedException();
+            }
+
+            try {
+                Thread.sleep(SLEEP_TIME);
+                //attempt to get lock again.
+                isDenied = lockManager.grantLock(pid, tid, perm);
+            } catch (InterruptedException e){
+                e.printStackTrace();
+                System.exit(0);
+            }
+        }
+
         Page retrievedPage = null;
         if (!bufferedPages.containsKey(pid)) {
             if (bufferedPages.size() >= pageNum) {
@@ -87,7 +121,8 @@ public class BufferPool {
      */
     public  void releasePage(TransactionId tid, PageId pid) {
         // some code goes here
-        // not necessary for proj1
+        // not necessary for proj4
+        lockManager.releaseLock(pid, tid);
     }
 
     /**
@@ -104,7 +139,8 @@ public class BufferPool {
     public boolean holdsLock(TransactionId tid, PageId p) {
         // some code goes here
         // not necessary for proj1
-        return false;
+        //return false;
+        return lockManager.hasLocks(tid, p);
     }
 
     /**
@@ -246,8 +282,26 @@ public class BufferPool {
         // some code goes here
         // not necessary for proj1
         //flush the page first, which is the end node
+        Node evictedNode = end;
+
+        Page retrievedPage = Database.getCatalog()
+                            .getDbFile(evictedNode.pageId.getTableId())
+                            .readPage(evictedNode.pageId);
+
+        //find page that is not dirty
+        while (evictedNode != null && retrievedPage.isDirty() != null) {
+            evictedNode = evictedNode.pre;
+            retrievedPage = Database.getCatalog()
+                            .getDbFile(evictedNode.pageId.getTableId())
+                            .readPage(evictedNode.pageId);
+        }
+
+        if (evictedNode == null) {
+            throw new DbException("All pages are dirty.");
+        }
+
         try {
-            flushPage(end.pageId);
+            flushPage(evictedNode.pageId);
         } catch (IOException e) {
             e.printStackTrace();
             System.exit(0);
@@ -256,8 +310,8 @@ public class BufferPool {
             System.exit(0);
         }
         //remove the page
-        bufferedPages.remove(end.pageId);
-        removeNode(end);
+        bufferedPages.remove(evictedNode.pageId);
+        removeNode(evictedNode);
     }
 
     //A methods to change the head node of double-list.
@@ -292,7 +346,6 @@ public class BufferPool {
         changeHead(node);
         bufferedPages.put(pid, node);
     }
-
 }
 
 //Add a new class to implement LRU cache
@@ -307,3 +360,4 @@ class Node {
         this.page = p;
     }
 }
+
