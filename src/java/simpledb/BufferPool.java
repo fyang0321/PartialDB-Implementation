@@ -132,7 +132,10 @@ public class BufferPool {
      */
     public void transactionComplete(TransactionId tid) throws IOException {
         // some code goes here
-        // not necessary for proj1
+        // not necessary for proj1\
+    	//should always commit, simply call transactionComplete(tid,true)
+    	transactionComplete(tid, true);
+    	
     }
 
     /** Return true if the specified transaction has a lock on the specified page */
@@ -154,6 +157,37 @@ public class BufferPool {
         throws IOException {
         // some code goes here
         // not necessary for proj1
+
+    	
+    	//commit, flush the pages
+    	if(commit){
+    		for(PageId pageId : bufferedPages.keySet()){
+    			Page page = bufferedPages.get(pageId).page;
+    			//dirty page
+    			if(page.isDirty() != null && tid.equals(page.isDirty())){
+    				flushPage(pageId);
+    				page.setBeforeImage();
+    			}
+    			
+    		}
+    	}
+    	else{
+    		for(PageId pageId : bufferedPages.keySet()){
+    			Page page = bufferedPages.get(pageId).page;
+    			//dirty page, revert changes
+    			if(page.isDirty() != null && tid.equals(page.isDirty())){
+    				Node n = bufferedPages.get(pageId);
+    				n.page = page.getBeforeImage();
+    				bufferedPages.put(pageId, n);
+    			}
+    			
+    		}
+    	}
+    	
+    	//release the lock
+    	lockManager.releaseAllTransactionLocks(tid);
+    	currentTransactions.remove(tid);
+    	
     }
 
     /**
