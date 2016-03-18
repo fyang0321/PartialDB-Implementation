@@ -41,7 +41,7 @@ public class BufferPool {
     public BufferPool(int numPages) {
         // some code goes here
         this.pageNum = numPages;
-        this.bufferedPages = new HashMap<PageId, Node>();
+        this.bufferedPages = new ConcurrentHashMap<PageId, Node>();
         currentTransactions = new ConcurrentHashMap<TransactionId, Long>();
         lockManager = new LockManager();
     }
@@ -102,9 +102,9 @@ public class BufferPool {
             updateLruWithNewNode(pid, retrievedPage);
         } else {
             retrievedPage = bufferedPages.get(pid).page;
-            Node node = bufferedPages.get(pid);
-            removeNode(node);
-            changeHead(node);
+            // Node node = bufferedPages.get(pid);
+            // removeNode(node);
+            // changeHead(node);
         }
 
         return retrievedPage;
@@ -168,6 +168,10 @@ public class BufferPool {
     				flushPage(pageId);
     				page.setBeforeImage();
     			}
+
+                if (page.isDirty() == null) {
+                    page.setBeforeImage();
+                }
     			
     		}
     	}
@@ -179,6 +183,7 @@ public class BufferPool {
     				Node n = bufferedPages.get(pageId);
     				n.page = page.getBeforeImage();
     				bufferedPages.put(pageId, n);
+                   // updateLruWithNewNode(pageId, page.getBeforeImage());
     			}
     			
     		}
@@ -209,11 +214,14 @@ public class BufferPool {
         // some code goes here
         // not necessary for proj1
         try {
-            List<Page> pages = Database.getCatalog().getDbFile(tableId)
-                        .insertTuple(tid, t);
+            DbFile dbFile = Database.getCatalog().getDbFile(tableId);
+            HeapFile heapFile = (HeapFile)dbFile;
+            List<Page> pages = heapFile.insertTuple(tid, t);
+            //Database.getCatalog().getDbFile(tableId)
+              //          .insertTuple(tid, t);
             for (Page page : pages) {
                 page.markDirty(true, tid);
-                updateLruWithNewNode(page.getId(), page);
+               // updateLruWithNewNode(page.getId(), page);
             }
         } catch (TransactionAbortedException e) {
             e.printStackTrace();
@@ -249,7 +257,7 @@ public class BufferPool {
                 .getPageId().getTableId()).deleteTuple(tid, t);
 
             page.markDirty(true, tid);
-            updateLruWithNewNode(page.getId(), page);
+            //updateLruWithNewNode(page.getId(), page);
         } catch (DbException e) {
             e.printStackTrace();
             System.exit(0);
@@ -316,26 +324,48 @@ public class BufferPool {
         // some code goes here
         // not necessary for proj1
         //flush the page first, which is the end node
-        Node evictedNode = end;
+        // System.out.println("In evict head " + head + " end "+end);
+        // Node evictedNode = end;
 
-        Page retrievedPage = Database.getCatalog()
-                            .getDbFile(evictedNode.pageId.getTableId())
-                            .readPage(evictedNode.pageId);
+        // Page retrievedPage = bufferedPages.get(evictedNode.pageId).page;
 
-        //find page that is not dirty
-        while (evictedNode != null && retrievedPage.isDirty() != null) {
-            evictedNode = evictedNode.pre;
-            retrievedPage = Database.getCatalog()
-                            .getDbFile(evictedNode.pageId.getTableId())
-                            .readPage(evictedNode.pageId);
-        }
+        // //find page that is not dirty
+        // //System.out.println(end.pageId.hashCode() + " ??" );
+        // while (evictedNode != null && retrievedPage.isDirty() != null) {
+        //     System.out.println("bufferpool loops");
+        //     evictedNode = evictedNode.pre;
+        //     retrievedPage = evictedNode == null ? 
+        //             null : bufferedPages.get(evictedNode.pageId).page;
+        // }
+        // System.out.println("evict one node in evict");
+        // if (evictedNode == null) {
+        //     throw new DbException("All pages are dirty.");
+        // }
 
-        if (evictedNode == null) {
-            throw new DbException("All pages are dirty.");
+        // try {
+        //     flushPage(evictedNode.pageId);
+        // } catch (IOException e) {
+        //     e.printStackTrace();
+        //     System.exit(0);
+        // } catch (Exception e) {
+        //     e.printStackTrace();
+        //     System.exit(0);
+        // }
+        // //remove the page
+        // bufferedPages.remove(evictedNode.pageId);
+        //removeNode(evictedNode);
+
+        Page retrievedPage = null;
+
+        for (PageId pid : bufferedPages.keySet()) {
+            retrievedPage = bufferedPages.get(pid).page;
+            if (retrievedPage.isDirty() == null) {
+                break;
+            }
         }
 
         try {
-            flushPage(evictedNode.pageId);
+            flushPage(retrievedPage.getId());
         } catch (IOException e) {
             e.printStackTrace();
             System.exit(0);
@@ -344,15 +374,19 @@ public class BufferPool {
             System.exit(0);
         }
         //remove the page
-        bufferedPages.remove(evictedNode.pageId);
-        removeNode(evictedNode);
+        bufferedPages.remove(retrievedPage.getId());
+
     }
 
     //A methods to change the head node of double-list.
     private void changeHead(Node node){
         node.next = head;
-        node.pre = head == null ? null : head.pre;
- 
+       node.pre = head == null ? null : head.pre;
+        // node.pre = null;
+
+        // if (head != null)
+        //     head.pre = node;
+
         head = node;
  
         if(end == null)
@@ -361,6 +395,7 @@ public class BufferPool {
 
     //A method to remove the node of double-list.
     private void removeNode(Node node){
+
         if (node.pre == null) {
             this.head = node.next;
         } else {
@@ -368,7 +403,7 @@ public class BufferPool {
         }
 
         if (node.next == null) {
-            end = node.pre;
+            this.end = node.pre;
         } else {
             node.next.pre = node.pre;
         } 
