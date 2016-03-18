@@ -21,11 +21,14 @@ public class AbortEvictionTest extends SimpleDbTestBase {
         Transaction t = new Transaction();
         t.start();
 
+        System.out.println("fuck you");
         // Insert a new row
         EvictionTest.insertRow(f, t);
 
+        System.out.println("fuck you after insert");
         // The tuple must exist in the table
         boolean found = EvictionTest.findMagicTuple(f, t);
+        System.out.println("this is true test! " + found);
         assertTrue(found);
         // ABORT
         t.transactionComplete(true);
@@ -34,6 +37,7 @@ public class AbortEvictionTest extends SimpleDbTestBase {
         t = new Transaction();
         t.start();
         found = EvictionTest.findMagicTuple(f, t);
+        System.out.println("This is false test! " + found);
         assertFalse(found);
         t.commit();
     }
